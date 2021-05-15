@@ -29,4 +29,4 @@ schannel = "0.1.15"
 openssl-probe = "0.1.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "2.0.0"
+security-framework = "2.2.0"
