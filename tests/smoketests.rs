@@ -12,7 +12,7 @@ fn check_site(domain: &str) {
     config.root_store = rustls_native_certs::load_native_certs()
         .unwrap();
 
-    let dns_name = webpki::DNSNameRef::try_from_ascii_str(domain)
+    let dns_name = webpki::DnsNameRef::try_from_ascii_str(domain)
         .unwrap();
     let mut sess = rustls::ClientSession::new(&Arc::new(config), dns_name);
     let mut sock = TcpStream::connect(format!("{}:443", domain)).unwrap();
