@@ -1,10 +1,9 @@
-// This test attempts to verify that the set of 'native'
-// certificates produced by this crate is roughly similar
-// to the set of certificates in the mozilla root program
-// as expressed by the `webpki-roots` crate.
-//
-// This is, obviously, quite a heuristic test.
-
+//! This test attempts to verify that the set of 'native'
+//! certificates produced by this crate is roughly similar
+//! to the set of certificates in the mozilla root program
+//! as expressed by the `webpki-roots` crate.
+//!
+//! This is, obviously, quite a heuristic test.
 use std::collections::HashMap;
 use ring::io::der;
 use untrusted;
@@ -74,8 +73,8 @@ fn test_does_not_have_many_roots_unknown_by_mozilla() {
 
     let mut missing_in_moz_roots = 0;
 
-    for cert in &native.roots {
-        let cert = cert.to_trust_anchor();
+    for cert in &native {
+        let cert = webpki::trust_anchor_util::cert_der_as_trust_anchor(&cert.0).unwrap();
         if let Some(moz) = mozilla.get(cert.spki) {
             assert_eq!(cert.subject, moz.subject,
                        "subjects differ for public key");
@@ -86,9 +85,12 @@ fn test_does_not_have_many_roots_unknown_by_mozilla() {
     }
 
     #[cfg(windows)]
-    let threshold = 1.6; // no more than 160% extra roots; windows CI vm has lots of extra roots
-    #[cfg(not(windows))]
+    let threshold = 2.0; // no more than 160% extra roots; windows CI vm has lots of extra roots
+    #[cfg(target_os = "macos")]
+    let threshold = 0.6; // macOS has a bunch of extra roots, too
+    #[cfg(not(any(windows, target_os = "macos")))]
     let threshold = 0.5; // no more than 50% extra roots
+
     let diff = (missing_in_moz_roots as f64) / (mozilla.len() as f64);
     println!("mozilla: {:?}", mozilla.len());
     println!("native: {:?}", native.len());
@@ -102,8 +104,9 @@ fn test_contains_most_roots_known_by_mozilla() {
         .unwrap();
 
     let mut native_map = HashMap::new();
-    for anchor in &native.roots {
-        native_map.insert(anchor.to_trust_anchor().spki.to_vec(), anchor);
+    for anchor in &native {
+        let cert = webpki::trust_anchor_util::cert_der_as_trust_anchor(&anchor.0).unwrap();
+        native_map.insert(cert.spki.to_vec(), anchor);
     }
 
     let mut missing_in_native_roots = 0;
@@ -117,7 +120,9 @@ fn test_contains_most_roots_known_by_mozilla() {
 
     #[cfg(windows)]
     let threshold = 0.95; // no more than 95% extra roots; windows misses *many* roots
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    let threshold = 0.6; // no more than 60% extra roots; macOS has a bunch of extra roots, too
+    #[cfg(not(any(windows, target_os = "macos")))]
     let threshold = 0.5; // no more than 50% extra roots
 
     let diff = (missing_in_native_roots as f64) / (mozilla.len() as f64);
@@ -133,7 +138,8 @@ fn util_list_certs() {
     let native = rustls_native_certs::load_native_certs()
         .unwrap();
 
-    for (i, cert) in native.roots.iter().enumerate() {
-        println!("cert[{}] = {}", i, stringify_x500name(cert.to_trust_anchor().subject));
+    for (i, cert) in native.iter().enumerate() {
+        let cert = webpki::trust_anchor_util::cert_der_as_trust_anchor(&cert.0).unwrap();
+        println!("cert[{}] = {}", i, stringify_x500name(cert.subject));
     }
 }
